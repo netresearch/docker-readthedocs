@@ -1,76 +1,77 @@
-FROM python:2
+FROM python:3
+
+ENV RTD_PRODUCTION_DOMAIN 'localhost:8000'
 
 # Prep the environment
 RUN apt-get update && apt-get -y install \
+  bzr \
+  build-essential \
+  curl \
+  doxygen \
+  dvipng \
+  g++ \
+  git-core \
+  graphviz-dev \
+  libpq-dev \
+  libxml2-dev \
+  libxslt-dev \
+  libxslt1-dev \
+  libfreetype6  \
+  libbz2-dev \
+  libcairo2-dev \
+  libenchant1c2a \
+  libevent-dev \
+  libffi-dev \
+  libfreetype6-dev \
+  libgraphviz-dev \
+  libjpeg-dev \
+  liblcms2-dev \
+  libreadline-dev \
+  libsqlite3-dev \
+  libtiff5-dev \
+  libwebp-dev \
+  mercurial \
+  nginx \
+  plantuml \
+  postgresql-client \
+  subversion \
   texlive-latex-recommended \
   texlive-fonts-recommended \
   texlive-latex-extra \
-  doxygen \
-  dvipng \
-  graphviz \
-  nginx \
-  nano
+  pandoc \
+  pkg-config \
+  wget \
+  zlib1g-dev
 
-# Install readthedocs (bits as of Dec 15 2015)
-RUN mkdir /www
-WORKDIR /www
+COPY setup/ /
 
-COPY ./files/readthedocs.org-master.tar.gz ./readthedocs.org-master.tar.gz
-COPY ./files/tasksrecommonmark.patch ./tasksrecommonmark.patch
-RUN tar -zxvf readthedocs.org-master.tar.gz
-RUN mv ./readthedocs.org-master ./readthedocs.org
+WORKDIR /var/www/html
 
-WORKDIR /www/readthedocs.org
+# Install readthedocs
+RUN wget https://github.com/rtfd/readthedocs.org/archive/master.tar.gz
+RUN tar -zxvf master.tar.gz && mv readthedocs.org-master/* .
 
+# Update pip
+RUN pip install --upgrade pip
 
+# Install dependencies
+RUN pip install git+https://github.com/Supervisor/supervisor
+RUN pip install gunicorn setproctitle
+RUN pip install -U virtualenv auxlib
 
 # Install the required Python packages
 RUN pip install -r requirements.txt
 
-# Install a higher version of requests to fix an SSL issue
-RUN pip install requests==2.6.0
-
-# Override the default settings
-COPY ./files/local_settings.py ./readthedocs/settings/local_settings.py
-COPY ./files/tasksrecommonmark.patch ./tasksrecommonmark.patch
-
-# Patch tasks.py to use newer recommonmark
-RUN patch ./readthedocs/projects/tasks.py < ./tasksrecommonmark.patch
-
-# Deploy the database
-RUN python ./manage.py migrate
-
 # Create a super user
+RUN python manage.py migrate
 RUN echo "from django.contrib.auth.models import User; User.objects.create_superuser('admin', 'admin@localhost', 'admin')" | python ./manage.py shell
-
-# Load test data
-RUN python ./manage.py loaddata test_data
-
-# Copy static files
-RUN python ./manage.py collectstatic --noinput
-
-# Install gunicorn web server
-RUN pip install gunicorn
-RUN pip install setproctitle
+RUN python manage.py collectstatic --noinput &&\
+    python manage.py loaddata test_data
 
 # Set up the gunicorn startup script
-COPY ./files/gunicorn_start.sh ./gunicorn_start.sh
 RUN chmod u+x ./gunicorn_start.sh
 
-# Install supervisord
-RUN pip install supervisor
-ADD files/supervisord.conf /etc/supervisord.conf
-
-VOLUME /www/readthedocs.org
-
-ENV RTD_PRODUCTION_DOMAIN 'localhost:8000'
-
-# Set up nginx
-COPY ./files/readthedocs.nginx.conf /etc/nginx/sites-available/readthedocs
-RUN ln -s /etc/nginx/sites-available/readthedocs /etc/nginx/sites-enabled/readthedocs
-
 # Clean Up Apt
-
 RUN apt-get autoremove -y
 
 CMD ["supervisord"]

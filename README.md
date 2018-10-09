@@ -20,7 +20,7 @@ This image also removes the infamous account email verification on user sign-up.
 
 ### Run the Container
 ```
-docker run -d -it -p 8000:8000 -e "RTD_PRODUCTION_DOMAIN=my_domain.com:8000" --name readthedocs vassilvk/readthedocs
+docker run -d -it -p 8000:8000 -e "RTD_PRODUCTION_DOMAIN=my_domain.com:8000" --name readthedocs netresearch/readthedocs
 ```
 
 The above example starts the container with the assumption that it will be accessed at http://my_domain.com:8000.
@@ -55,9 +55,21 @@ docker inspect readthedocs
 Once you do that, you can delete the container: `docker rm readthedocs`.
 Now you can start the container by mounting the host-provided folder like this:
 ```
-docker run -d -it -p 8000:8000 -e "RTD_PRODUCTION_DOMAIN=my_domain.com:8000" -v ~/readthedocs.org:/www/readthedocs.org --name readthedocs vassilvk/readthedocs
+docker run -d -it -p 8000:8000 -e "RTD_PRODUCTION_DOMAIN=my_domain.com:8000" -v ~/readthedocs.org:/var/www/html --name readthedocs netresearch/readthedocs
 ```
 
 ### Access the Application
 To access the web application hosted by the container, navigate to http://my_domain.com:8000/ where "my_domain.com" is the address of the container host.
 You can access the site with user `admin`, password `admin`.
+
+## Development
+
+### Build new image
+docker build -t netresearch/readthedocs:latest --rm=true .
+
+### Run the instance off of docker
+docker run -d -it -p 8000:8000 -e "RTD_PRODUCTION_DOMAIN=192.168.99.100:8000" -v $(pwd):/var/www/html --name readthedocs netresearch/readthedocs
+
+### Run the instance off of Windows (same as above, only use two slashes at the beginning of the volume path)
+docker run -d -it -p 8000:8000 -e "RTD_PRODUCTION_DOMAIN=192.168.99.100:8000" -v $(pwd):/var/www/html --name readthedocs netresearch/readthedocs
+
